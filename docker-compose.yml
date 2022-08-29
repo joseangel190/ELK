@@ -1,0 +1,65 @@
+version: '3.1'
+services:
+
+    elasticsearch:
+        image: docker.elastic.co/elasticsearch/elasticsearch:7.2.0
+        container_name: "elasticsearch"
+        ports:
+        - "9200:9200"
+        environment:
+            - cluster.name=docker-cluster
+            - bootstrap.memory_lock=true
+            - xpack.security.enabled=false
+            - discovery.type=single-node
+        volumes:
+        - ./elasticsearch/data:/usr/share/elasticsearch/data:rw              # Persistence data
+        - ./elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+        networks:
+            - observability
+
+    logstash:
+        image: docker.elastic.co/logstash/logstash:7.2.0
+        container_name: logstash
+        ports:
+            - "5044:5044"          
+        volumes:
+            - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml
+            - ./logstash/pipeline/logstash.conf:/usr/share/logstash/pipeline/logstash.conf # Pipeline configuration
+        environment: 
+            LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+        restart: on-failure
+        depends_on:
+            - elasticsearch
+        networks:
+            - observability
+
+
+    kibana:
+        container_name: "kibana"
+        image: docker.elastic.co/kibana/kibana:7.2.0
+        volumes:
+            - ./kibana/config/kibana.yml:/usr/share/kibana/config/kibana.yml
+        ports:
+            - "5601:5601"
+        restart: on-failure
+        depends_on:
+            - elasticsearch
+        networks:
+            - observability
+
+    ms-user:
+        build:
+           context: ./Spring
+        container_name: "ms-user"
+        ports:
+            - '8080:8080'
+        networks:
+            - observability
+
+networks:
+    observability:
+      driver: bridge
+      
+volumes:
+  esdata1:
+    driver: local
